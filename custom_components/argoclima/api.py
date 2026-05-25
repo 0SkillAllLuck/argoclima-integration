@@ -17,6 +17,14 @@ class ArgoApiClient:
         self._type = type
         self._session = session
 
+    @property
+    def host(self) -> str:
+        return self._host
+
+    @host.setter
+    def host(self, host: str) -> None:
+        self._host = host
+
     async def async_sync_data(self, data: ArgoData) -> ArgoData:
         if data is None:
             data = ArgoData(self._type)

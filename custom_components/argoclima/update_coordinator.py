@@ -14,20 +14,43 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 class ArgoDataUpdateCoordinator(DataUpdateCoordinator[ArgoData]):
     def __init__(
-        self, hass: HomeAssistant, client: ArgoApiClient, type: ArgoDeviceType
+        self,
+        hass: HomeAssistant,
+        client: ArgoApiClient,
+        type: ArgoDeviceType,
+        *,
+        use_polling: bool = True,
     ) -> None:
         """Initialize."""
+        self._type = type
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=type.update_interval),
+            update_interval=timedelta(seconds=type.update_interval)
+            if use_polling
+            else None,
             update_method=self._async_update,
         )
 
         self._api = client
         self.platforms = []
         self.data = ArgoData(type)
+
+    def async_update_host(self, host: str) -> None:
+        """Update the direct device address used for explicit syncs."""
+        self._api.host = host
+
+    def async_set_push_updates_enabled(self, enabled: bool) -> None:
+        """Enable or disable periodic polling while retaining manual refreshes."""
+        was_polling = self.update_interval is not None
+        self.update_interval = (
+            None if enabled else timedelta(seconds=self._type.update_interval)
+        )
+        if enabled:
+            self._async_unsub_refresh()
+        elif not was_polling and self._listeners:
+            self._schedule_refresh()
 
     async def _async_update(self) -> ArgoData:
         """Update data via library."""
